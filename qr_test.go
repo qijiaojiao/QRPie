@@ -1,57 +1,39 @@
 package qrpie
 
 import (
-    "testing"
-    "fmt"
-    "encoding/csv"
-    _"image/png"
-    "os"
-    "image"
+	"fmt"
+	"image"
+	_ "image/png"
+	"os"
+	"testing"
 )
 
-func TestProcessImg(t *testing.T)  {
-    processImg("1504662961.png")
+func TestIsSim(t *testing.T) {
+	fmt.Println(isSim(45, 9*3))
 }
 
-func TestS(t *testing.T)  {
-    _ ,err :=loadImage("/Users/coyte/Downloads/erweima/u=1360432999,376837849&fm=27&gp=0.jpg")
-    if err != nil{
-        fmt.Println(err.Error())
-    }
-}
-func TestIsSim(t *testing.T)  {
-    fmt.Println(isSim(45,9*3))
-}
-
-func TestGenerateTrainData(t *testing.T)  {
-    generateTrainData("/Users/coyte/Downloads/erweima","/Users/coyte/Downloads/img","train_data.csv")
-}
-
-func TestCsv(t *testing.T){
-    mm,_ := os.Create("aa.csv")
-    writer := csv.NewWriter(mm)
-    writer.Write([]string{"a","b","c","d"})
-    writer.Flush()
-}
-
-func TestCSVRead(t *testing.T)  {
-    model,_ := os.Open("model.csv")
-    reader := csv.NewReader(model)
-    for{
-        record,err := reader.Read()
-        if err != nil{
-            break
-        }
-        fmt.Println(record)
-    }
+func TestGenerateTrainData(t *testing.T) {
+	GenerateTrainData("/Users/coyte/Downloads/erweima", "/Users/coyte/Downloads/img", "train_data.csv")
 }
 
 func TestIsQr(t *testing.T) {
-    file,_ := os.Open("1504662961.png")
-    img,_,_ := image.Decode(file)
-    fmt.Println(IsQr(img))
-    file,_ = os.Open("1.06253348869.jpg")
-    img,_,_ = image.Decode(file)
-    fmt.Println(IsQr(img))
-    file.Close()
+	file, _ := os.Open("1504662961.png")
+	img, _, _ := image.Decode(file)
+	fmt.Println(IsQr(img))
+	file, _ = os.Open("1.06253348869.jpg")
+	img, _, _ = image.Decode(file)
+	fmt.Println(IsQr(img))
+	file.Close()
+}
+
+func TestDownLoadImg(t *testing.T) {
+	downLoadImg("http://www.yigeshaozi.com/qiniu/5599/image/fbc36af155da17d17d512ea25b4ca874.png?imageView2/2/w/399")
+}
+
+func TestIsQrUrl(t *testing.T) {
+	fmt.Println(IsQrUrl("https://imag00&sec=1505131357841&di=a9c45e9f308e14142eb19c99.jpg"))
+}
+
+func TestIsQrPath(t *testing.T) {
+	fmt.Println(IsQrPath("1.06253348869.jpg"))
 }
