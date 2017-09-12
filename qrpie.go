@@ -2,8 +2,12 @@ package qrpie
 
 import (
 	"encoding/csv"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/vp8l"
+	_ "golang.org/x/image/webp"
 	"image"
 	"image/color"
+	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"io/ioutil"
@@ -31,20 +35,20 @@ var (
 
 func initEnv() {
 	once.Do(func() {
-		cs, _ := os.Open("model.csv")
+		cs, _ := os.Open("/Users/coyte/go/src/truxing/commons/utils/qrpie/model.csv")
 		reader := csv.NewReader(cs)
 		model, _ = reader.ReadAll()
 	})
 }
 
-func loadImage(path string) (img image.Image, err error) {
+func loadImage(path string) (img image.Image, f string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		log.Error(err.Error())
 		return
 	}
 	defer file.Close()
-	img, _, err = image.Decode(file)
+	img, f, err = image.Decode(file)
 	return
 }
 
@@ -125,6 +129,9 @@ func extractFeature(img image.Image) []float64 {
 func isDemandBiLy(list []int, p int) bool {
 	p = p % 5
 	if isSim(list[(p+1)%5], list[p]) && isSim(list[(p+1)%5], list[(p+3)%5]) && isSim(list[(p+1)%5], list[(p+4)%5]) && isSim(list[(p+2)%5], list[(p+3)%5]*3) {
+		if list[p] < 5 {
+			return false
+		}
 		return true
 	} else {
 		return false
@@ -176,7 +183,7 @@ func GenerateTrainData(qrPath string, other string, name string) (err error) {
 			if file.IsDir() {
 				continue
 			} else {
-				img, err := loadImage(dir + "/" + file.Name())
+				img, _, err := loadImage(dir + "/" + file.Name())
 				if err != nil {
 					log.Debugf("load img fail error msg is %s,fileName is %s", err.Error(), file.Name())
 					fail++
@@ -216,12 +223,13 @@ func predict(features []float64) bool {
 	i := 0
 	var gain float64
 	nextNode := "0-0"
+	log.Debug("model:", model)
 	for _, record := range model {
 		if i == 0 {
 			i = 1
 			continue
 		}
-		if nextNode != record[2] {
+		if nextNode != record[2] && string(record[2][2]) != "0" {
 			continue
 		}
 		if record[3] != "Leaf" {
@@ -235,6 +243,7 @@ func predict(features []float64) bool {
 		} else {
 			g, _ := strconv.ParseFloat(record[8], 64)
 			gain += g
+
 		}
 	}
 	if math.Exp(gain)/(1+math.Exp(gain)) > Threshold {
@@ -248,22 +257,21 @@ func IsQr(img image.Image) (bool, error) {
 	return predict(features), nil
 }
 
-func downLoadImg(url string) (image.Image, error) {
-	response, e := http.Get(url)
+func downLoadImg(url string) (image.Image, string, error) {
+	req, _ := http.NewRequest("GET", url, nil)
+	client := http.Client{}
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	response, e := client.Do(req)
 	if e != nil {
-		log.Errorf("download image error:%s", e.Error())
-		return nil, e
+		return nil, ",", e
 	}
 	defer response.Body.Close()
-	img, _, err := image.Decode(response.Body)
-	if err != nil {
-		log.Debug(err.Error())
-	}
-	return img, err
+	img, f, err := image.Decode(response.Body)
+	return img, f, err
 }
 
 func IsQrUrl(url string) (bool, error) {
-	img, err := downLoadImg(url)
+	img, _, err := downLoadImg(url)
 	if err == nil {
 		return IsQr(img)
 	} else {
@@ -272,7 +280,7 @@ func IsQrUrl(url string) (bool, error) {
 }
 
 func IsQrPath(path string) (bool, error) {
-	img, err := loadImage(path)
+	img, _, err := loadImage(path)
 	if err == nil {
 		return IsQr(img)
 	} else {

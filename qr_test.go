@@ -31,7 +31,7 @@ func TestDownLoadImg(t *testing.T) {
 }
 
 func TestIsQrUrl(t *testing.T) {
-	fmt.Println(IsQrUrl("https://imag00&sec=1505131357841&di=a9c45e9f308e14142eb19c99.jpg"))
+	fmt.Println(IsQrUrl("http://wx3.sinaimg.cn/large/7ae2aa57ly1fiwde73v8kg20dw0af7wh.gif"))
 }
 
 func TestIsQrPath(t *testing.T) {
