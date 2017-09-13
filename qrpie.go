@@ -28,17 +28,25 @@ const (
 	Threshold = 0.2
 )
 
-var (
+type Qr struct {
 	once  sync.Once
 	model [][]string
-)
+}
 
-func initEnv() {
-	once.Do(func() {
-		cs, _ := os.Open("/Users/coyte/go/src/truxing/commons/utils/qrpie/model.csv")
-		reader := csv.NewReader(cs)
-		model, _ = reader.ReadAll()
-	})
+//输入为决策树model的路径
+func NewQr(modelPath string) *Qr {
+	cs, err := os.Open(modelPath)
+	if err != nil {
+		panic(err.Error())
+	}
+	reader := csv.NewReader(cs)
+	m, err := reader.ReadAll()
+	if err != nil {
+		panic(err.Error())
+	}
+	return &Qr{
+		model: m,
+	}
 }
 
 func loadImage(path string) (img image.Image, f string, err error) {
@@ -210,8 +218,7 @@ func GenerateTrainData(qrPath string, other string, name string) (err error) {
 	return
 }
 
-func predict(features []float64) bool {
-	initEnv()
+func (q *Qr) predict(features []float64) bool {
 	fm := make(map[string]float64)
 	for i := 0; i < imgWidth*imgWidth; i++ {
 		key := "pix." + strconv.Itoa(i)
@@ -223,8 +230,7 @@ func predict(features []float64) bool {
 	i := 0
 	var gain float64
 	nextNode := "0-0"
-	log.Debug("model:", model)
-	for _, record := range model {
+	for _, record := range q.model {
 		if i == 0 {
 			i = 1
 			continue
@@ -252,9 +258,9 @@ func predict(features []float64) bool {
 	return false
 }
 
-func IsQr(img image.Image) (bool, error) {
+func (q *Qr) IsQr(img image.Image) (bool, error) {
 	features := extractFeature(img)
-	return predict(features), nil
+	return q.predict(features), nil
 }
 
 func downLoadImg(url string) (image.Image, string, error) {
@@ -270,19 +276,19 @@ func downLoadImg(url string) (image.Image, string, error) {
 	return img, f, err
 }
 
-func IsQrUrl(url string) (bool, error) {
+func (q *Qr) IsQrUrl(url string) (bool, error) {
 	img, _, err := downLoadImg(url)
 	if err == nil {
-		return IsQr(img)
+		return q.IsQr(img)
 	} else {
 		return false, err
 	}
 }
 
-func IsQrPath(path string) (bool, error) {
+func (q *Qr) IsQrPath(path string) (bool, error) {
 	img, _, err := loadImage(path)
 	if err == nil {
-		return IsQr(img)
+		return q.IsQr(img)
 	} else {
 		return false, err
 	}
