@@ -2,9 +2,6 @@ package qrpie
 
 import (
 	"encoding/csv"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/vp8l"
-	_ "golang.org/x/image/webp"
 	"image"
 	"image/color"
 	_ "image/gif"
@@ -12,20 +9,22 @@ import (
 	_ "image/png"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
 
-	"code.google.com/p/graphics-go/graphics"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/vp8l"
+	_ "golang.org/x/image/webp"
 
 	"truxing/commons/log"
 )
 
 const (
-	imgWidth  = 30
-	vecLen    = imgWidth*imgWidth + 2 //最后两个是提取的特征，前边900个是像素点
-	Threshold = 0.2
+	vecLen    = 5 //手动提取了5个特征
+	Threshold = 0.6
 )
 
 type Qr struct {
@@ -70,13 +69,15 @@ func extractFeature(img image.Image) []float64 {
 	y := 0
 	features := make([]float64, 0, vecLen)
 	grayImg := image.NewGray(img.Bounds())
+	th := grayMean(img)
+	cluster := NewCluster()
 	for h := 0; h < height; h++ {
 		list := make([]int, 5, 5)
 		p := 0
 		for w := 0; w < width; w++ {
 			c := color.GrayModel.Convert(img.At(w, h))
-			if c.(color.Gray).Y < 127 {
-				if cc {
+			if float64(c.(color.Gray).Y) < th {
+				if cc || w == width-1 {
 					p = (p + 1) % 5
 					if isDemandBiLy(list, p) {
 						if x == w || y == h {
@@ -85,6 +86,8 @@ func extractFeature(img image.Image) []float64 {
 						x = w
 						y = h
 						f1++
+						cluster.add(newPoint(w, h))
+
 					}
 					list[p] = 0
 				}
@@ -93,7 +96,7 @@ func extractFeature(img image.Image) []float64 {
 				grayImg.SetGray(w, h, color.Gray{Y: 0})
 
 			} else {
-				if !cc {
+				if !cc || w == width-1 {
 					p = (p + 1) % 5
 					if isDemandBiLy(list, p) {
 						if x == w || y == h {
@@ -102,7 +105,9 @@ func extractFeature(img image.Image) []float64 {
 						x = w
 						y = h
 						f1++
+						cluster.add(newPoint(w, h))
 					}
+
 					list[p] = 0
 				}
 				cc = true
@@ -110,34 +115,58 @@ func extractFeature(img image.Image) []float64 {
 				grayImg.SetGray(w, h, color.Gray{Y: 255})
 			}
 		}
+
 	}
 
-	sImg, err := scale(grayImg)
-	if err != nil {
-		log.Errorf("scale image fail:%s", err.Error())
-	}
-	sum := 0
-	for i := 0; i < sImg.Bounds().Dy(); i++ {
-		for j := 0; j < sImg.Bounds().Dx(); j++ {
-			c := color.GrayModel.Convert(sImg.At(j, i))
-			if c.(color.Gray).Y == 0 {
-				features = append(features, 0)
-			} else {
-				features = append(features, 1)
-				sum++
-			}
-
-		}
-	}
-	features = append(features, float64(f1)/math.Log(float64(height)))
-	features = append(features, float64(f2)/math.Log(float64(height)))
+	features = append(features, float64(f1)/float64(height))
+	features = append(features, float64(f2)/float64(height))
+	features = append(features, getFeatureFromCluster(cluster.getMaxThreeHeapCenter()))
+	features = append(features, float64(cluster.getLenth())/float64(height))
+	features = append(features, cluster.getVariance())
 	return features
+}
+
+//抽样获取灰度平均值，用10000个点来抽样
+func grayMean(img image.Image) float64 {
+	num := 10000
+	width := img.Bounds().Size().X
+	height := img.Bounds().Size().Y
+	mean := 0.0
+	for i := 0; i < num; i++ {
+		c := color.GrayModel.Convert(img.At(rand.Intn(width), rand.Intn(height)))
+		mean = float64(c.(color.Gray).Y) + mean
+	}
+	return mean / float64(num)
+}
+
+func getFeatureFromCluster(points []point) float64 {
+	if len(points) < 3 {
+		return 3
+	}
+	fn := func(p1 point, p2 point) float64 {
+		return math.Abs(p1.x*p2.x+p1.y*p2.y) / distant(p1, point{0, 0}) / distant(p2, point{0, 0})
+	}
+
+	result := math.MaxFloat64
+	for i, _ := range points {
+		vec1 := pointMinus(points[i], points[(i+1)%3])
+		vec2 := pointMinus(points[i], points[(i+2)%3])
+		r := fn(vec1, vec2)
+		r = r + math.Min(fn(vec1, point{0, 1}), fn(vec1, point{1, 0}))
+		r = r + math.Min(fn(vec2, point{0, 1}), fn(vec2, point{1, 0}))
+		if r < result {
+			result = r
+		}
+
+	}
+
+	return result
 }
 
 func isDemandBiLy(list []int, p int) bool {
 	p = p % 5
 	if isSim(list[(p+1)%5], list[p]) && isSim(list[(p+1)%5], list[(p+3)%5]) && isSim(list[(p+1)%5], list[(p+4)%5]) && isSim(list[(p+2)%5], list[(p+3)%5]*3) {
-		if list[p] < 5 {
+		if list[p] < 2 {
 			return false
 		}
 		return true
@@ -150,17 +179,11 @@ func isSim(x int, y int) bool {
 	if y == 0 {
 		return false
 	}
-	if math.Abs((float64(x)/float64(y) - 1)) < 0.3 {
+	if math.Abs((float64(x)-float64(y))/math.Max(float64(x), float64(y))) <= 0.4 {
 		return true
 	} else {
 		return false
 	}
-}
-
-func scale(img image.Image) (d image.Image, err error) {
-	dst := image.NewGray(image.Rect(0, 0, imgWidth, imgWidth))
-	err = graphics.Scale(dst, img)
-	return dst, err
 }
 
 //此方法是用来产生训练数据的
@@ -173,11 +196,10 @@ func GenerateTrainData(qrPath string, other string, name string) (err error) {
 	writer := csv.NewWriter(file)
 	header := make([]string, 0, vecLen)
 	header = append(header, "/")
-	for i := 0; i < imgWidth*imgWidth; i++ {
-		header = append(header, "pix."+strconv.Itoa(i))
+	for i := 0; i < vecLen; i++ {
+		f := "f" + strconv.Itoa(i+1)
+		header = append(header, f)
 	}
-	header = append(header, "f1")
-	header = append(header, "f2")
 	header = append(header, "y")
 	writer.Write(header)
 	fail := 0
@@ -198,6 +220,7 @@ func GenerateTrainData(qrPath string, other string, name string) (err error) {
 					continue
 				}
 				features := extractFeature(img)
+				log.Debug(file.Name())
 				record := make([]string, 0, vecLen+1)
 				record = append(record, file.Name())
 				for _, s := range features {
@@ -220,13 +243,10 @@ func GenerateTrainData(qrPath string, other string, name string) (err error) {
 
 func (q *Qr) predict(features []float64) bool {
 	fm := make(map[string]float64)
-	for i := 0; i < imgWidth*imgWidth; i++ {
-		key := "pix." + strconv.Itoa(i)
+	for i := 0; i < vecLen; i++ {
+		key := "f" + strconv.Itoa(i+1)
 		fm[key] = features[i]
 	}
-	fm["f1"] = features[900]
-	fm["f2"] = features[901]
-
 	i := 0
 	var gain float64
 	nextNode := "0-0"
@@ -292,4 +312,26 @@ func (q *Qr) IsQrPath(path string) (bool, error) {
 	} else {
 		return false, err
 	}
+}
+
+type point struct {
+	x float64
+	y float64
+}
+
+func newPoint(x, y int) point {
+	return point{float64(x), float64(y)}
+}
+
+func pointAdd(p1 point, p2 point) point {
+	return point{p1.x + p2.x, p1.y + p2.y}
+}
+
+func pointMinus(p1 point, p2 point) point {
+	return point{p1.x - p2.x, p1.y - p2.y}
+}
+
+func distant(p1 point, p2 point) float64 {
+	d := math.Sqrt(math.Pow(p1.x-p2.x, 2) + math.Pow(p1.y-p2.y, 2))
+	return d
 }

@@ -2,11 +2,15 @@ package qrpie
 
 import (
 	"fmt"
-	"image"
 	_ "image/png"
+
+	"image"
+	"math/rand"
 	"os"
 	"testing"
 )
+
+var qr = NewQr("model.csv")
 
 func TestIsSim(t *testing.T) {
 	fmt.Println(isSim(45, 9*3))
@@ -17,13 +21,7 @@ func TestGenerateTrainData(t *testing.T) {
 }
 
 func TestIsQr(t *testing.T) {
-	file, _ := os.Open("1504662961.png")
-	img, _, _ := image.Decode(file)
-	fmt.Println(IsQr(img))
-	file, _ = os.Open("1.06253348869.jpg")
-	img, _, _ = image.Decode(file)
-	fmt.Println(IsQr(img))
-	file.Close()
+
 }
 
 func TestDownLoadImg(t *testing.T) {
@@ -31,9 +29,34 @@ func TestDownLoadImg(t *testing.T) {
 }
 
 func TestIsQrUrl(t *testing.T) {
-	fmt.Println(IsQrUrl("http://wx3.sinaimg.cn/large/7ae2aa57ly1fiwde73v8kg20dw0af7wh.gif"))
+	fmt.Println(qr.IsQrUrl("outPG/Art/view_formula_2x.png"))
 }
 
 func TestIsQrPath(t *testing.T) {
-	fmt.Println(IsQrPath("1.06253348869.jpg"))
+	for {
+		fmt.Println(rand.Intn(2))
+	}
+
+}
+
+var points = []point{
+	point{0, 0},
+	point{1, 5},
+	point{5, 6},
+	point{6, 2},
+}
+
+///Users/coyte/Downloads/erweima/
+
+func TestFeatures(t *testing.T) {
+	qr := NewQr("model.csv")
+	file, _ := os.Open("view_formula_2x.png")
+	img, _, _ := image.Decode(file)
+	fmt.Println(qr.IsQr(img))
+}
+
+func TestGrayMean(t *testing.T) {
+	file, _ := os.Open("view_formula_2x.png")
+	img, _, _ := image.Decode(file)
+	fmt.Println(grayMean(img))
 }
