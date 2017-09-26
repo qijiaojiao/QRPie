@@ -9,5 +9,9 @@ func main(){
   var qr = NewQr("model.csv的地址")
 
   fmt.Println(qr.IsQrUrl("你的图片url"))
-  
+
 }
+
+预测二维码正确率几乎100%，
+
+召回率97%左右
