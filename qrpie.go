@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/vp8l"
@@ -285,7 +286,9 @@ func (q *Qr) IsQr(img image.Image) (bool, error) {
 
 func downLoadImg(url string) (image.Image, string, error) {
 	req, _ := http.NewRequest("GET", url, nil)
-	client := http.Client{}
+	client := http.Client{
+		Timeout: time.Duration(5) * time.Second,
+	}
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
 	response, e := client.Do(req)
 	if e != nil {
