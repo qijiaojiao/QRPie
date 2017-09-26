@@ -39,15 +39,6 @@ func TestIsQrPath(t *testing.T) {
 
 }
 
-var points = []point{
-	point{0, 0},
-	point{1, 5},
-	point{5, 6},
-	point{6, 2},
-}
-
-///Users/coyte/Downloads/erweima/
-
 func TestFeatures(t *testing.T) {
 	qr := NewQr("model.csv")
 	file, _ := os.Open("view_formula_2x.png")
