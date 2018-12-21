@@ -19,8 +19,6 @@ import (
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/vp8l"
 	_ "golang.org/x/image/webp"
-
-	"truxing/commons/log"
 )
 
 const (
@@ -52,7 +50,6 @@ func NewQr(modelPath string) *Qr {
 func loadImage(path string) (img image.Image, f string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Error(err.Error())
 		return
 	}
 	defer file.Close()
@@ -216,12 +213,10 @@ func GenerateTrainData(qrPath string, other string, name string) (err error) {
 			} else {
 				img, _, err := loadImage(dir + "/" + file.Name())
 				if err != nil {
-					log.Debugf("load img fail error msg is %s,fileName is %s", err.Error(), file.Name())
 					fail++
 					continue
 				}
 				features := extractFeature(img)
-				log.Debug(file.Name())
 				record := make([]string, 0, vecLen+1)
 				record = append(record, file.Name())
 				for _, s := range features {
@@ -315,26 +310,4 @@ func (q *Qr) IsQrPath(path string) (bool, error) {
 	} else {
 		return false, err
 	}
-}
-
-type point struct {
-	x float64
-	y float64
-}
-
-func newPoint(x, y int) point {
-	return point{float64(x), float64(y)}
-}
-
-func pointAdd(p1 point, p2 point) point {
-	return point{p1.x + p2.x, p1.y + p2.y}
-}
-
-func pointMinus(p1 point, p2 point) point {
-	return point{p1.x - p2.x, p1.y - p2.y}
-}
-
-func distant(p1 point, p2 point) float64 {
-	d := math.Sqrt(math.Pow(p1.x-p2.x, 2) + math.Pow(p1.y-p2.y, 2))
-	return d
 }
