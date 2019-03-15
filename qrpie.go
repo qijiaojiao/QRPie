@@ -23,7 +23,7 @@ import (
 
 const (
 	vecLen    = 5 //手动提取了5个特征
-	Threshold = 0.6
+	Threshold = 0.98
 )
 
 type Qr struct {
